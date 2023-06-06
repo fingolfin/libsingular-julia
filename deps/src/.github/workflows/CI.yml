@@ -1,0 +1,33 @@
+name: Run tests
+
+# Trigger the workflow on push or pull request
+on: [push, pull_request]
+
+jobs:
+  test:
+    # Don't run this twice on PRs for branches pushed to the same repository
+    if: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ endsWith(matrix.julia-version, 'nightly') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version:
+          - '1.6'
+          - 'nightly'
+        os:
+          - ubuntu-latest
+          - macOS-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Set up Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.julia-version }}
+      - run: julia -e 'using Pkg ; Pkg.add(["Singular_jll", "CxxWrap", "CMake"])'
+      # TODO: install development version of Singular instead of master...
+      - run: julia -e 'using Pkg ; Pkg.add(PackageSpec(url="https://github.com/oscar-system/Singular.jl", rev="master"))'
+      - run: julia run.jl -e 'using Pkg ; Pkg.test("Singular")'
+      # TODO: could collect coverage data and upload it to Codecov
